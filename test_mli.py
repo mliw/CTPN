@@ -20,6 +20,15 @@ if __name__=="__main__":
     pictures = glob('asset/original_pictures/*')
     
     
+    # 1 Loading weights
+    for i in range(len(weight_wait_list)):
+        test_model._load_weights(weight_wait_list[i])
+        saved_str = weight_wait_list[i].split("\\")[1].split("_")[0]
+        test_model.predict("asset/original_pictures/chinese_text.png","asset/chinese_text"+saved_str+".png")
+        test_model.predict("asset/original_pictures/ut_austin_econ.jpg","asset/ut_austin_econ"+saved_str+".jpg")    
+        test_model.predict("asset/original_pictures/github.jpg","asset/github"+saved_str+".jpg")    
+
+
     # 1 Load weights
     for weight in weight_wait_list:
         weight_num = int(weight.split("\\")[1].split("_")[0])
