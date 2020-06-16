@@ -30,14 +30,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         gtbox, imgfile = readxml(xml_path)
         img = cv2.imread(os.path.join(self.images_dir, imgfile))
         h, w, c = img.shape
-        # clip image
-        if np.random.randint(0, 100) > 50:
-            img = img[:, ::-1, :]
-            newx1 = w - gtbox[:, 2] - 1
-            newx2 = w - gtbox[:, 0] - 1
-            gtbox[:, 0] = newx1
-            gtbox[:, 2] = newx2
-
         [cls, regr], _ = cal_rpn((h, w), (int(h / 16), int(w / 16)), 16, gtbox)
         # zero-center by mean pixel
         m_img = img - IMAGE_MEAN

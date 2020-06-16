@@ -32,7 +32,6 @@ def _rpn_loss_regr(y_true, y_pred):
     y_pred [1][HXWX10][2] (reger)
     H and W are dimensions of feature map!
     """
-
     sigma = 9.0
     cls = y_true[0, :, 0]
     regr = y_true[0, :, 1:3]
@@ -71,7 +70,6 @@ class CTPN:
     def __init__(self,):
         self._build_net()
 
-
     def _build_net(self):
         vgg_model = VGG16(weights=None, include_top=False, input_shape=(None,None,3))
         vgg_model.load_weights(VGG_WEIGHTS_PATH)
@@ -81,17 +79,16 @@ class CTPN:
         sub_output = vgg_model.get_layer('block5_conv3').output
         x = layers.Conv2D(512, (3, 3), strides=(1, 1), padding='same', activation='relu',
                    name='rpn_conv1')(sub_output)
-        x1 = layers.TimeDistributed(layers.Bidirectional(layers.GRU(128, return_sequences=True), name='blstm'))(x)
-        fc = layers.Conv2D(512, (1, 1), padding='same', activation='relu', name='lstm_fc')(x1)     
+        x = tf.squeeze(x,axis = 0)
+        time_x = layers.Bidirectional(layers.GRU(128, return_sequences=True), name='blstm')(x)
+        time_x = tf.expand_dims(time_x,axis=0)
+        fc = layers.Conv2D(512, (1, 1), padding='same', activation='relu', name='lstm_fc')(time_x)     
         class_logit = layers.Conv2D(10 * 2, (1, 1), padding='same', activation='linear', name='rpn_class_origin')(fc)
         regression = layers.Conv2D(10 * 2, (1, 1), padding='same', activation='linear', name='rpn_regress_origin')(fc)
         class_logit_reshape = layers.Reshape(target_shape=(-1, 2), name='rpn_class_reshape')(class_logit)
         regression_reshape = layers.Reshape(target_shape=(-1, 2), name='rpn_regress_reshape')(regression)
-
-        # Finish building model
         train_model = Model(original_input,[class_logit_reshape, regression_reshape])
         self.core = train_model
-
 
     def _compile_net(self,lr):
         self.core.compile(optimizer=SGD(lr),
@@ -269,7 +266,7 @@ x:TensorShape([1, 50, 37, 512])
 # from dlocr.ctpn.lib import utils
 # from dlocr.ctpn.lib.text_proposal_connector_oriented import TextProposalConnectorOriented
 
-
+x1 = layers.TimeDistributed(layers.Bidirectional(layers.GRU(128, return_sequences=True), name='blstm'))(x)
 def draw_rect(rect, img):
     cv2.line(img, (rect[0], rect[1]), (rect[2], rect[3]), (255, 0, 0), 2)
     cv2.line(img, (rect[2], rect[3]), (rect[6], rect[7]), (255, 0, 0), 2)

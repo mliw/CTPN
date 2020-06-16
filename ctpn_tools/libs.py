@@ -6,13 +6,12 @@ import matplotlib.pyplot as plt
 from glob import glob
 from concurrent.futures import ThreadPoolExecutor
 import tensorflow as tf
-
 anchor_scale = 16
 IOU_NEGATIVE = 0.3
 IOU_POSITIVE = 0.7
 IOU_SELECT = 0.7
-RPN_POSITIVE_NUM = 150
-RPN_TOTAL_NUM = 300
+RPN_POSITIVE_NUM = 64
+RPN_TOTAL_NUM = 128
 # bgr  can find from  here https://github.com/fchollet/deep-learning-models/blob/master/imagenet_utils.py
 IMAGE_MEAN = [123.68, 116.779, 103.939]
 DEBUG = True
@@ -126,44 +125,44 @@ def cal_overlaps(boxes1, boxes2):
     return overlaps
 
 
-def bbox_transfrom(anchors, gtboxes):
+def bbox_transform(anchors, gtboxes):
     """
     anchors: (Nsample, 4)
     gtboxes: (Nsample, 4)
-     compute relative predicted vertical coordinates Vc ,Vh
-        with respect to an anchor 
+    compute relative predicted vertical coordinates Vc ,Vh
+    with respect to an anchor 
     """
-    Cy = (gtboxes[:, 1] + gtboxes[:, 3]) * 0.5  # (Nsample, )
-    Cya = (anchors[:, 1] + anchors[:, 3]) * 0.5  # (Nsample, )
-    h = gtboxes[:, 3] - gtboxes[:, 1] + 1.0  # (Nsample, )
-    ha = anchors[:, 3] - anchors[:, 1] + 1.0  # (Nsample, )
-
-    Vc = (Cy - Cya) / ha  # (Nsample, )
-    Vh = np.log(h / ha)  # (Nsample, )
-
-    ret = np.vstack((Vc, Vh))
-
-    return ret.transpose()  # (Nsample, 2)
-
-
+    anchor_center = (anchors[:,1]+anchors[:,3])/2
+    anchor_heights = anchors[:,3]-anchors[:,1]+1
+    gtboxes_center = (gtboxes[:,1]+gtboxes[:,3])/2
+    gtboxes_heights = gtboxes[:,3]-gtboxes[:,1]+1
+    
+    gtboxes_relative_center = (gtboxes_center-anchor_center)/anchor_heights
+    gtboxes_relative_heights = np.log(gtboxes_heights/anchor_heights)
+    result = np.vstack((gtboxes_relative_center,gtboxes_relative_heights))
+    return result.T
+    
+    
 def bbox_transfor_inv(anchor, regr):
     """
-    anchor: (NSample, 4)
-    regr: (NSample, 2)
-
-    根据锚框和偏移量反向得到GTBox
+    Parameters
+    ----------
+    anchor : (NSample, 4)
+        Standard proposals of pictures.
+    regr : (NSample, 2)
+        The bias.
+    Returns
+    -------
+    bbox : (NSample, 4)
+        Ground truth boxes.
     """
-
-    Cya = (anchor[:, 1] + anchor[:, 3]) * 0.5  # 锚框y中心点
+    Cya = (anchor[:, 1] + anchor[:, 3]) * 0.5
     ha = anchor[:, 3] - anchor[:, 1] + 1
-
-    Vcx = regr[..., 0]  # y中心点偏移
-    Vhx = regr[..., 1]  # 高度偏移
-
-    Cyx = Vcx * ha + Cya  # GTBox y中心点
-    hx = np.exp(Vhx) * ha  # GTBox 高
-    xt = (anchor[:, 0] + anchor[:, 2]) * 0.5  # 锚框x中心点
-
+    Vcx = regr[..., 0]  
+    Vhx = regr[..., 1]
+    Cyx = Vcx * ha + Cya  
+    hx = np.exp(Vhx) * ha  
+    xt = (anchor[:, 0] + anchor[:, 2]) * 0.5 
     x1 = xt - 16 * 0.5
     y1 = Cyx - hx * 0.5
     x2 = xt + 16 * 0.5
@@ -198,15 +197,11 @@ def cal_rpn(imgsize, featuresize, scale, gtboxes):
     gtboxes: (Msample, 4)
     """
     imgh, imgw = imgsize
-
-    # gen base anchor
     base_anchor = gen_anchor(featuresize, scale)  # (Nsample, 4)
-
-    # calculate iou
-    overlaps = cal_overlaps(gtboxes, base_anchor)  # (Nsample, Msample)
+    overlaps = cal_overlaps(gtboxes, base_anchor)  # (Nsample, Msample) 
     overlaps = overlaps.T 
 
-    # init labels -1 don't care  0 is negative  1 is positive
+    # init labels -1 (don't care 0 is negative;1 is positive)
     labels = np.empty(base_anchor.shape[0])
     labels.fill(-1)  # (Nsample,)
 
@@ -233,38 +228,20 @@ def cal_rpn(imgsize, featuresize, scale, gtboxes):
     )[0]
     labels[outside_anchor] = -1
 
-    # 剔除掉多余的正负样例
+    # Balance negative and positive samples
     # subsample positive labels ,if greater than RPN_POSITIVE_NUM(default 128)
     fg_index = np.where(labels == 1)[0]
     if (len(fg_index) > RPN_POSITIVE_NUM):
         labels[np.random.choice(fg_index, len(fg_index) - RPN_POSITIVE_NUM, replace=False)] = -1
-
     # subsample negative labels
     bg_index = np.where(labels == 0)[0]
-    num_bg = RPN_TOTAL_NUM - np.sum(labels == 1)
+    num_bg = RPN_TOTAL_NUM - np.sum(labels == 1) if RPN_TOTAL_NUM>np.sum(labels == 1) else np.sum(labels == 1)    
     if (len(bg_index) > num_bg):
-        # print('bgindex:',len(bg_index),'num_bg',num_bg)
         labels[np.random.choice(bg_index, len(bg_index) - num_bg, replace=False)] = -1
 
-    # calculate bbox targets
-    # debug here 
-    bbox_targets = bbox_transfrom(base_anchor, gtboxes[anchor_argmax_overlaps, :])
-    # bbox_targets=[]
+    bbox_targets = bbox_transform(base_anchor, gtboxes[anchor_argmax_overlaps, :]) # gtboxes[anchor_argmax_overlaps, :] are gt boxes which has the largest iou with corresponding anchors
 
     return [labels, bbox_targets], base_anchor
-
-
-def get_session(gpu_fraction=0.6):
-    '''''Assume that you have 6GB of GPU memory and want to allocate ~2GB'''
-
-    num_threads = os.environ.get('OMP_NUM_THREADS')
-    gpu_options = tf.compat.v1.GPUOptions(per_process_gpu_memory_fraction=gpu_fraction)
-
-    if num_threads:
-        return tf.compat.v1.InteractiveSession(config=tf.compat.v1.ConfigProto(
-            gpu_options=gpu_options, intra_op_parallelism_threads=num_threads, allow_soft_placement=True))
-    else:
-        return tf.compat.v1.InteractiveSession(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True))
 
 
 class random_uniform_num():
@@ -363,14 +340,15 @@ def gen_sample(xmlpath, imgpath, batchsize=1):
 
 
 def rpn_test():
-    xmlpath = r'data\Annotations\img_1423.xml'
-    imgpath = r'data\JPEGImages\img_1423.jpg'
+    xmlpath = r'data\Annotations\img_1479.xml'
+    imgpath = r'data\JPEGImages\img_1479.jpg'
     gtbox, _ = readxml(xmlpath)
     img = cv2.imread(imgpath)
     h, w, c = img.shape
     [cls, regr], base_anchor = cal_rpn((h, w), (int(h / 16), int(w / 16)), 16, gtbox)
     print(cls.shape)
     print(regr.shape)
+    print(regr[cls==1])
 
     regr = np.expand_dims(regr, axis=0)
     inv_anchor = bbox_transfor_inv(base_anchor, regr)
