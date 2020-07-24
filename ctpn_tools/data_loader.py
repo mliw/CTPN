@@ -4,8 +4,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import math
-from multiprocessing.pool import Pool
-from ctpn_tools.libs import random_uniform_num, readxml, cal_rpn, IMAGE_MEAN
+from ctpn_tools.libs import readxml, cal_rpn, IMAGE_MEAN
 anno_dir = r"data\Annotations"
 images_dir = r"data\JPEGImages"
 main_data = glob(anno_dir+ '/*.xml') 
@@ -13,13 +12,12 @@ main_data = glob(anno_dir+ '/*.xml')
 
 class DataGenerator(tf.keras.utils.Sequence):
     
-    def __init__(self, datas, batch_size=50,images_dir=r"data\JPEGImages",shuffle=True):
+    def __init__(self, datas, batch_size=1,images_dir=r"data\JPEGImages",shuffle=True):
         self.batch_size = batch_size
         self.datas = datas
         self.datas = np.array(self.datas)
         self.indexes = np.arange(len(self.datas))
         np.random.shuffle(self.indexes)
-        self.shuffle = shuffle
         self.images_dir = images_dir
         
     def __len__(self):
@@ -36,11 +34,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         m_img = np.expand_dims(m_img, axis=0)
 
         regr = np.hstack([cls.reshape(cls.shape[0], 1), regr])
-
-        #
         cls = np.expand_dims(cls, axis=0)
         cls = np.expand_dims(cls, axis=1)
-        # regr = np.expand_dims(regr,axis=1)
         regr = np.expand_dims(regr, axis=0)
 
         return [m_img, {'rpn_class_reshape': cls, 'rpn_regress_reshape': regr}]
@@ -51,17 +46,15 @@ class DataGenerator(tf.keras.utils.Sequence):
         # print(index)
         # print(batch_index[0])
         # print("="*60)
-
         # pool
         # poop = Pool(4)       
         # results = poop.map(self._single_sample,self.datas[batch_index])
         # poop.close()
         # poop.join()
-        
         # Simple list
         results = [self._single_sample(items) for items in self.datas[batch_index]]
         
-        return results
+        return results[0][0],results[0][1]
 
     def on_epoch_end(self):
         if self.shuffle == True:

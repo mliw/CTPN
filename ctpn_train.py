@@ -1,7 +1,7 @@
 import tensorflow as tf
 from glob import glob
 from ctpn_tools.core import CTPN
-from ctpn_tools.data_loader import DataLoader
+from ctpn_tools.data_loader import DataGenerator
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -25,25 +25,15 @@ if __name__ == '__main__':
     images_dir = r"data\JPEGImages"
     main_data = glob(anno_dir+ '/*.xml')
 
-    
+        
     # 2 Start training
     for i in range(50):
-        dll = DataLoader(main_data)      
+        dll = DataGenerator(main_data)
+        it_dll = iter(dll)
         lr = 0.0001 if i<=30 else 0.00001
         train_model._compile_net(lr)
-        his = train_model.train_model.fit_generator(dll.load_data(),epochs=1,steps_per_epoch=6000,callbacks = [tf.keras.callbacks.History()])
+        his = train_model.core.fit_generator(it_dll,steps_per_epoch=dll.__len__(),epochs=1,callbacks = [tf.keras.callbacks.History()])
         saved_str = "weights/"+str(i)+"_"+parser(his.history)+".h5"
         train_model.train_model.save_weights(saved_str)
     
     
-    
-    
-"""    
-train_model.train_model.save_weights("weights/0.1044_0.1138.h5")
-
-
-train_model.train_model.compile(optimizer=SGD(0.0001),
-                       loss={'rpn_regress_reshape': _rpn_loss_regr, 'rpn_class_reshape': _rpn_loss_cls},
-                       loss_weights={'rpn_regress_reshape': 1.0, 'rpn_class_reshape': 1.0})
-
-"""
