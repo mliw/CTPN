@@ -84,7 +84,6 @@ class CTPN:
                        loss={'rpn_regress_reshape': _rpn_loss_regr, 'rpn_class_reshape': _rpn_loss_cls},
                        loss_weights={'rpn_regress_reshape': 1.0, 'rpn_class_reshape': 1.0})
         
-        
     def _load_weights(self,path):
         self.core.load_weights(path)
         

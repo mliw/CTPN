@@ -10,9 +10,7 @@ from ctpn_tools import libs
 VGG_WEIGHTS_PATH = "weights/imagenet_vgg16.h5"
 IMAGE_MEAN = [123.68, 116.779, 103.939]
 IOU_SELECT = 0.7
-# 0 Prepare VGG16  input_shape = (batch_size, rows, cols, channels)
-# base_model = VGG16(weights='imagenet', include_top=False, pooling=None,input_shape=(None,None,3))
-# base_model.save_weights("weights/imagenet_vgg16.h5")
+
 
 def draw_rect(rect, img):
     cv2.line(img, (rect[0], rect[1]), (rect[2], rect[3]), (255, 0, 0), 2)
@@ -140,6 +138,8 @@ class CTPN:
             cv2.rectangle(img,(i[0],i[1]),(i[2],i[3]),color=(255,0,0))
         cv2.imwrite(output_path, img)
 
+
+"""
     def final_predict(self, image, output_path=None, mode=1):
 
         if type(image) == str:
@@ -201,7 +201,7 @@ class CTPN:
             plt.show()
             if output_path is not None:
                 cv2.imwrite(output_path, img)
-    
+"""    
 
 """
 # 1 Define loss functions
