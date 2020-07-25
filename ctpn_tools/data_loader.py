@@ -42,18 +42,7 @@ class DataGenerator(tf.keras.utils.Sequence):
     
     def __getitem__(self, index):
         batch_index = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        # print("="*60)
-        # print(index)
-        # print(batch_index[0])
-        # print("="*60)
-        # pool
-        # poop = Pool(4)       
-        # results = poop.map(self._single_sample,self.datas[batch_index])
-        # poop.close()
-        # poop.join()
-        # Simple list
         results = [self._single_sample(items) for items in self.datas[batch_index]]
-        
         return results[0][0],results[0][1]
 
     def on_epoch_end(self):

@@ -358,12 +358,5 @@ def rpn_test():
         cv2.rectangle(img, (i[0], i[1]), (i[2], i[3]), (255, 0, 0), 3)
     plt.imshow(img)
 
-# rpn_test()
-# plt.show()
 
-# xmlpath = 'E:\data\VOCdevkit\VOC2007\Annotations'
-# imgpath = 'E:\data\VOCdevkit\VOC2007\JPEGImages'
-# gen1 = gen_sample(xmlpath, imgpath, 3)
-# _, ret = next(gen1)
-# print(ret.get('rpn_class_reshape').shape)
 # print(ret.get('rpn_regress_reshape').shape)

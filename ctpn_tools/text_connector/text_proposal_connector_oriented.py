@@ -21,6 +21,22 @@ class TextProposalConnectorOriented:
         p=np.poly1d(np.polyfit(X, Y, 1))
         return p(x1), p(x2)
 
+    def simple_get_text_lines(self, text_proposals, scores, im_size):
+        """
+        text_proposals:boxes
+        
+        """
+        # tp=text proposal
+        tp_groups=self.group_text_proposals(text_proposals, scores, im_size)#首先还是建图，获取到文本行由哪几个小框构成
+        text_lines=np.zeros((len(tp_groups), 4), np.float32)
+    
+        for index, tp_indices in enumerate(tp_groups):
+            text_line_boxes=text_proposals[list(tp_indices)]#每个文本行的全部小框
+            x1,y1 = np.min(text_line_boxes[:,[0,1]],axis = 0)
+            x2,y2 = np.max(text_line_boxes[:,[2,3]],axis = 0)            
+            text_lines[index,:] = np.array([x1,y1,x2,y2])
+        return text_lines
+    
     def get_text_lines(self, text_proposals, scores, im_size):
         """
         text_proposals:boxes
@@ -28,7 +44,6 @@ class TextProposalConnectorOriented:
         """
         # tp=text proposal
         tp_groups=self.group_text_proposals(text_proposals, scores, im_size)#首先还是建图，获取到文本行由哪几个小框构成
-        
         text_lines=np.zeros((len(tp_groups), 8), np.float32)
 
         for index, tp_indices in enumerate(tp_groups):
